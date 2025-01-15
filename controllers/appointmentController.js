@@ -1,36 +1,56 @@
-// In-memory storage for appointments (can be replaced with database later)
-let appointments = [];
+const appointments = []; // In-memory storage of appointments
 
-const bookAppointment = (req, res) => {
-    const { firstName, lastName, email, timeSlot, doctorName } = req.body;
+// function to check if two time slots overlap
+function isTimeSlotOverlapping(existingStart, existingEnd, newStart, newEnd) {
+    const existingStartTime = new Date(`2025-01-01T${existingStart}:00`);
+    const existingEndTime = new Date(`2025-01-01T${existingEnd}:00`);
+    const newStartTime = new Date(`2025-01-01T${newStart}:00`);
+    const newEndTime = new Date(`2025-01-01T${newEnd}:00`);
 
-    // Check if the time slot is already booked for the given doctor
-    const isTimeSlotTaken = appointments.some(
-        (appointment) => appointment.doctorName === doctorName && appointment.timeSlot === timeSlot
+    // Check if the time slots overlap
+    return (existingStartTime < newEndTime && existingEndTime > newStartTime);
+}
+
+// Book Appointment API
+exports.bookAppointment = (req, res) => {
+    const { firstName, lastName, email, startTime, endTime, doctorName } = req.body;
+
+    // Check if any appointment already exists with overlapping time slots
+    const conflictingAppointment = appointments.find(appointment =>
+        appointment.doctorName === doctorName &&
+        isTimeSlotOverlapping(appointment.startTime, appointment.endTime, startTime, endTime)
     );
 
-    if (isTimeSlotTaken) {
-        return res.status(409).json({ error: 'Time slot is already booked.' });
+    if (conflictingAppointment) {
+        return res.status(409).json({ error: 'Time slot is already booked or overlapping with another appointment.' });
     }
 
-    // Create a new appointment object
-    const newAppointment = { firstName, lastName, email, timeSlot, doctorName };
+    // Create a new appointment
+    const newAppointment = {
+        firstName,
+        lastName,
+        email,
+        startTime,
+        endTime,
+        doctorName
+    };
 
-    // Store the appointment in the in-memory array
+    
     appointments.push(newAppointment);
 
-    // Return the success message and the full appointment details
+    
     return res.status(200).json({
         message: 'Appointment booked successfully.',
-        appointment: newAppointment
+        appointmentDetails: newAppointment
     });
 };
 
-const viewAppointment = (req, res) => {
+// View Appointment Details API
+exports.viewAppointment = (req, res) => {
     const { email } = req.params;
 
     // Find the appointment by email
-    const appointment = appointments.find((appt) => appt.email === email);
+    const appointment = appointments.find(app => app.email === email);
 
     if (!appointment) {
         return res.status(404).json({ error: 'Appointment not found.' });
@@ -39,13 +59,12 @@ const viewAppointment = (req, res) => {
     return res.status(200).json({ appointment });
 };
 
-const viewAllAppointmentsByDoctor = (req, res) => {
+// View All Appointments by Doctor API
+exports.viewAppointmentsByDoctor = (req, res) => {
     const { doctorName } = req.params;
 
     // Find all appointments for the given doctor
-    const doctorAppointments = appointments.filter(
-        (appt) => appt.doctorName === doctorName
-    );
+    const doctorAppointments = appointments.filter(app => app.doctorName === doctorName);
 
     if (doctorAppointments.length === 0) {
         return res.status(404).json({ error: 'No appointments found for this doctor.' });
@@ -54,63 +73,54 @@ const viewAllAppointmentsByDoctor = (req, res) => {
     return res.status(200).json({ appointments: doctorAppointments });
 };
 
-const cancelAppointment = (req, res) => {
-    const { email, timeSlot } = req.body;
+// Cancel Appointment API
+exports.cancelAppointment = (req, res) => {
+    const { email, startTime, endTime } = req.body;
 
-    // Find the appointment and remove it
-    const index = appointments.findIndex((appt) => appt.email === email && appt.timeSlot === timeSlot);
-
-    if (index === -1) {
-        return res.status(404).json({ error: 'Appointment not found.' });
-    }
-
-    // Remove the appointment from the array
-    appointments.splice(index, 1);
-
-    return res.status(200).json({ message: 'Appointment cancelled successfully.' });
-};
-
-const modifyAppointment = (req, res) => {
-    const { email, originalTimeSlot, newTimeSlot } = req.body;
-
-    if (!email || !originalTimeSlot || !newTimeSlot) {
-        return res.status(400).json({ error: 'Email, original time slot, and new time slot are required.' });
-    }
-
-    // Find the index of the appointment to modify
-    const appointmentIndex = appointments.findIndex(
-        (appointment) =>
-            appointment.email === email && appointment.timeSlot === originalTimeSlot
+    // Find the appointment to cancel
+    const appointmentIndex = appointments.findIndex(app =>
+        app.email === email && app.startTime === startTime && app.endTime === endTime
     );
 
     if (appointmentIndex === -1) {
         return res.status(404).json({ error: 'Appointment not found.' });
     }
 
-    // Check if the new time slot is already booked for the same doctor
-    const isTimeSlotConflict = appointments.some(
-        (appointment) =>
-            appointment.timeSlot === newTimeSlot &&
-            appointment.doctorName === appointments[appointmentIndex].doctorName
-    );
+    // Remove the appointment from the array
+    appointments.splice(appointmentIndex, 1);
 
-    if (isTimeSlotConflict) {
-        return res.status(409).json({ error: 'New time slot is already booked.' });
-    }
-
-    // Update the appointment time slot
-    appointments[appointmentIndex].timeSlot = newTimeSlot;
-
-    res.status(200).json({
-        message: 'Appointment modified successfully.',
-        updatedAppointment: appointments[appointmentIndex],
-    });
+    return res.status(200).json({ message: 'Appointment cancelled successfully.' });
 };
 
-module.exports = {
-    bookAppointment,
-    viewAppointment,
-    viewAllAppointmentsByDoctor,
-    cancelAppointment,
-    modifyAppointment
+// Modify Appointment API
+exports.modifyAppointment = (req, res) => {
+    const { email, originalStartTime, originalEndTime, newStartTime, newEndTime } = req.body;
+
+    // Find the appointment to modify
+    const appointment = appointments.find(app =>
+        app.email === email && app.startTime === originalStartTime && app.endTime === originalEndTime
+    );
+
+    if (!appointment) {
+        return res.status(404).json({ error: 'Appointment not found.' });
+    }
+
+    // Check if the new time slot conflicts with an existing appointment
+    const conflictingAppointment = appointments.find(app =>
+        app.doctorName === appointment.doctorName &&
+        isTimeSlotOverlapping(app.startTime, app.endTime, newStartTime, newEndTime)
+    );
+
+    if (conflictingAppointment) {
+        return res.status(409).json({ error: 'New time slot is overlapping with an existing appointment.' });
+    }
+
+    // Update the time slot of the appointment
+    appointment.startTime = newStartTime;
+    appointment.endTime = newEndTime;
+
+    return res.status(200).json({
+        message: 'Appointment modified successfully.',
+        appointmentDetails: appointment
+    });
 };
