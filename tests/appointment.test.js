@@ -8,10 +8,11 @@ describe('Doctor Appointment Booking System', () => {
             firstName: 'Yash',
             lastName: 'Raj',
             email: 'yash.raj@gmail.com',
-            timeSlot: '10:00 AM - 11:00 AM',
+            startTime: '10:00',
+            endTime: '11:00',
             doctorName: 'Dr. Jha',
         });
-        
+
         // The appointment booking was successful
         expect(res.statusCode).toBe(200);
         expect(res.body.message).toBe('Appointment booked successfully.');
@@ -19,28 +20,31 @@ describe('Doctor Appointment Booking System', () => {
             firstName: 'Yash',
             lastName: 'Raj',
             email: 'yash.raj@gmail.com',
-            timeSlot: '10:00 AM - 11:00 AM',
+            startTime: '10:00',
+            endTime: '11:00',
             doctorName: 'Dr. Jha',
         });
     });
 
-    // Test case to handle booking a conflicting appointment (same time slot)
+    // Test case to handle booking a conflicting appointment (overlapping time slot)
     it('should not allow booking a conflicting appointment', async () => {
         // First, we book an appointment for Raj Maurya with Dr. Narayan
         await request(app).post('/api/appointments/book').send({
             firstName: 'Raj',
             lastName: 'Maurya',
             email: 'raj.maurya@gmail.com',
-            timeSlot: '11:00 AM - 12:00 PM',
+            startTime: '11:00',
+            endTime: '12:00',
             doctorName: 'Dr. Narayan',
         });
-        
-        // Then, we try to book the same time slot for Sahil Baidya with Dr. Narayan
+
+        // Then, we try to book an overlapping time slot for Sahil Baidya with Dr. Narayan
         const res = await request(app).post('/api/appointments/book').send({
             firstName: 'Sahil',
             lastName: 'Baidya',
             email: 'sahil.baidya@gmail.com',
-            timeSlot: '11:00 AM - 12:00 PM',
+            startTime: '11:30',
+            endTime: '12:30',
             doctorName: 'Dr. Narayan',
         });
 
@@ -57,7 +61,8 @@ describe('Doctor Appointment Booking System', () => {
             firstName: 'Yash',
             lastName: 'Raj',
             email: 'yash.raj@gmail.com',
-            timeSlot: '10:00 AM - 11:00 AM',
+            startTime: '10:00',
+            endTime: '11:00',
             doctorName: 'Dr. Jha',
         });
     });
@@ -66,7 +71,8 @@ describe('Doctor Appointment Booking System', () => {
     it('should cancel an appointment', async () => {
         const res = await request(app).delete('/api/appointments/cancel').send({
             email: 'yash.raj@gmail.com',
-            timeSlot: '10:00 AM - 11:00 AM',
+            startTime: '10:00',
+            endTime: '11:00',
         });
 
         expect(res.statusCode).toBe(200);
@@ -79,14 +85,17 @@ describe('Doctor Appointment Booking System', () => {
             firstName: 'Raj',
             lastName: 'Maurya',
             email: 'raj.maurya@gmail.com',
-            timeSlot: '12:00 PM - 01:00 PM',
+            startTime: '12:00',
+            endTime: '13:00',
             doctorName: 'Dr. Narayan',
         });
 
         const res = await request(app).put('/api/appointments/modify').send({
             email: 'raj.maurya@gmail.com',
-            originalTimeSlot: '12:00 PM - 01:00 PM',
-            newTimeSlot: '01:00 PM - 02:00 PM',
+            originalStartTime: '12:00',
+            originalEndTime: '13:00',
+            newStartTime: '13:00',
+            newEndTime: '14:00',
         });
 
         expect(res.statusCode).toBe(200);
@@ -95,7 +104,8 @@ describe('Doctor Appointment Booking System', () => {
             firstName: 'Raj',
             lastName: 'Maurya',
             email: 'raj.maurya@gmail.com',
-            timeSlot: '01:00 PM - 02:00 PM',
+            startTime: '13:00',
+            endTime: '14:00',
             doctorName: 'Dr. Narayan',
         });
     });
